@@ -1,9 +1,85 @@
- 5-DoF Vision-Guided Robotic Arm: End-to-End PipelineThis repository contains a full-stack robotics project integrating Computer Vision, ROS2 middleware, and Embedded Inverse Kinematics. The system enables a 5-Degree of Freedom (DoF) manipulator to autonomously perceive, track, and pick-and-place objects based on real-time spatial data.🏗️ System ArchitectureThe project is divided into three distinct layers that form a closed-loop control system:LayerResponsibilityKey TechnologiesPerceptionArUco detection & Perspective MappingPython, OpenCV, NumPyCoordinationNode communication & Command FilteringROS2 (Humble/Foxy), SerialExecutionInverse Kinematics (IK) & PWM ControlESP32 (C++), PCA9685Digital TwinKinematic Validation & Path TracingMATLAB👁️ Computer Vision & Perception (ROS2)The perception stack transforms 2D image coordinates into 3D robot workspace coordinates.ArUco Tracking: Uses the ArucoDetectorNode to identify unique IDs for both the workspace boundaries and the target payloads.Perspective Transform: Implements a $3 \times 3$ transformation matrix to correct for camera tilt and lens distortion, mapping pixels to a physical $15cm \times 10cm$ grid.Hysteresis & Filtering: The ArucoSubscriber node implements a movement threshold ($0.5cm$) to prevent servo jitter caused by camera noise.🧠 Kinematic ModelingThe arm utilizes a geometric Inverse Kinematics solver. This allows the user to send Cartesian $(X, Y, Z)$ targets rather than manual joint angles.Mathematical FoundationsThe base rotation $q_1$ is derived from:$$q_1 = \operatorname{atan2}(Y, X)$$The elbow angle $q_3$ is determined via the Law of Cosines to reach the distance $D$:$$\cos(q_3) = \frac{D^2 - L_1^2 - L_{eff}^2}{2 \cdot L_1 \cdot L_{eff}}$$Note: $L_{eff}$ combines the forearm, wrist, and gripper lengths ($L_2 + L_3 + L_g$) to simplify the calculation into a 3-link planar problem.Hardware Safety & Vertical LevelingAuto-Leveling: The wrist ($q_5$) automatically adjusts its pitch based on the shoulder and elbow angles to ensure the gripper always approaches objects perpendicular to the surface.Z-Squash: A software-defined safety floor prevents the arm from colliding with the base or the ground during high-speed movements.📉 MATLAB Digital TwinThe 5-DOF_RRRRR_Arm.m script serves as a pre-deployment simulation environment. It extracts parameters from the urdfnew.urdf file to ensure the software model matches the physical hardware.Path History: Visualizes the end-effector trajectory in 3D space.Joint Limit Validation: Tests for singularities and unreachable coordinates before sending commands to the ESP32.Sinusoidal Easing: Implements smooth motion profiling using:$$(1 - \cos(\pi \cdot \text{step} / \text{total\_steps})) / 2$$🛠️ Hardware SetupMicrocontroller: ESP32 (WROOM-32).Servo Driver: PCA9685 16-Channel 12-bit PWM I2C Bus.Power: External 5V/10A DC supply for high-torque servos.Degrees of Freedom:Base YawShoulder PitchElbow PitchWrist RollWrist Pitch (Auto-leveled)Gripper (Actuator)🚀 Getting Started1. Embedded SetupFlash the ESP32 using the code in 5-DoF_Robotic_Arm/Main.cpp. Ensure the channelMap matches your physical PCA9685 wiring.2. ROS2 WorkspaceBash# Launch the vision node
+#  5-DoF Vision-Guided Robotic Arm: End-to-End Pipeline
+
+This repository contains a full-stack robotics system integrating **Computer Vision**, **ROS2 middleware**, and **Embedded Inverse Kinematics**. The project enables a 5-Degree of Freedom (DoF) manipulator to autonomously perceive, track, and pick-and-place objects based on real-time spatial data.
+
+---
+
+##  System Architecture
+
+The project follows a distributed control architecture, separating high-level perception from low-level hardware execution.
+
+| Layer | Responsibility | Key Technologies |
+| :--- | :--- | :--- |
+| **Perception** | ArUco detection & Perspective Mapping | Python, OpenCV, NumPy |
+| **Coordination** | Node communication & Command Filtering | ROS2 (Humble/Foxy), Serial |
+| **Execution** | Inverse Kinematics (IK) & PWM Control | ESP32 (C++), PCA9685 |
+| **Digital Twin** | Kinematic Validation & Path Tracing | MATLAB |
+
+---
+
+##  Computer Vision & Perception (ROS2)
+
+The perception stack transforms 2D camera pixels into 3D robot workspace coordinates using a specialized vision pipeline.
+
+* **ArUco Tracking:** The `ArucoDetectorNode` identifies unique IDs for workspace boundaries (corners) and target payloads.
+* **Perspective Transform:** A $3 \times 3$ transformation matrix corrects for camera tilt and lens distortion, mapping the raw feed to a physical **15cm x 10cm** grid.
+* **Hysteresis & Filtering:** The `ArucoSubscriber` node implements a **0.5cm** movement threshold to filter out camera noise and prevent servo jitter.
+* **Command Cooldown:** A 6-second software lock ensures the robot completes its pick-and-place sequence before accepting a new target.
+
+---
+
+##  Kinematic Modeling
+
+The arm utilizes a custom geometric **Inverse Kinematics (IK)** solver to translate Cartesian $(X, Y, Z)$ targets into joint angles.
+
+### Mathematical Logic
+The base rotation ($q_1$) is derived from:
+$$q_1 = \operatorname{atan2}(Y, X)$$
+
+The elbow angle ($q_3$) is determined via the Law of Cosines to reach the distance $D$:
+$$\cos(q_3) = \frac{D^2 - L_1^2 - L_{eff}^2}{2 \cdot L_1 \cdot L_{eff}}$$
+
+*Note: $L_{eff}$ lobs the forearm, wrist, and gripper lengths ($L_2 + L_3 + L_g$) into a single effective link for simplified planar calculation.*
+
+### Safety & Vertical Alignment
+* **Auto-Leveling:** The wrist ($q_5$) automatically adjusts its pitch to keep the gripper perpendicular to the work surface.
+* **Z-Squash Function:** A software safety layer prevents the arm from colliding with the floor, squashing $Z$ inputs below **12cm** into a safe parabolic curve.
+* **Safe Sweeps:** Movements are sequenced (Elbow → Base → Shoulder) to ensure the arm lifts clear of obstacles before rotating.
+
+---
+
+##  MATLAB Digital Twin
+
+The `5-DOF_RRRRR_Arm.m` script serves as a verification environment. It maps the physical robot using parameters extracted from the `urdfnew.urdf` file.
+
+* **Path History:** Visualizes the end-effector trajectory in 3D space to detect potential collisions.
+* **Sinusoidal Easing:** Simulates smooth motion profiling using:
+    $$\frac{1 - \cos(\pi \cdot \text{step} / \text{total\_steps})}{2}$$
+* **Accuracy Check:** Calculates the Euclidean distance between the IK solution and the intended target to verify model precision.
+
+---
+
+##  Hardware Specifications
+* **Controller:** ESP32 (WROOM-32) @ 115200 Baud.
+* **Actuation:** PCA9685 16-Channel 12-bit PWM driver.
+* **Servos:** 6 High-torque servos (Base, Shoulder, Elbow, Wrist Roll, Wrist Pitch, Gripper).
+* **Power:** External 5V/10A DC supply.
+
+---
+
+##  Execution Guide
+
+### 1. Embedded Setup
+Upload the `Main.cpp` firmware to your ESP32. Ensure the `channelMap` array matches your physical PCA9685 wiring (default pins: 0, 3, 4, 7, 8, 15).
+
+### 2. ROS2 Workspace
+Launch the nodes in separate terminals:
+```bash
+# 1. Start Vision Tracking
 ros2 run my_arm_pkg aruco_detector
 
-# Start the serial bridge to the ESP32
+# 2. Start the ESP32 Bridge
 ros2 run my_arm_pkg esp32_bridge --ros-args -p port:=/dev/ttyUSB0
 
-# Run the command coordinator
+# 3. Start the Coordinator
 ros2 run my_arm_pkg aruco_subscriber
-3. SimulationOpen MATLAB and run urdf_merged_sim.m to interact with the 3D model and test Inverse Kinematics targets manually.📂 Project StructureMain.cpp: ESP32 firmware containing the IK solver and servo sweep logic.aruco_detector.py: ROS2 node for OpenCV-based spatial tracking.esp32_bridge.py: Serial communication handler.5-DOF_RRRRR_Arm.m: MATLAB simulation and kinematic verification script.Does this structured breakdown align with the technical depth of your project, or would you like to add more specifics on the PID control for the temperature system mentioned earlier?
