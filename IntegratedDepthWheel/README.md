@@ -263,4 +263,4 @@ Downhole stick-slip introduces chaotic, broadband vibration into the cable syste
 
 ## License
 
-This project was developed as an internal R&D testbench at SLB. All physical models, algorithm implementations, and validation methods are based on publicly available patents and industry specifications referenced above.
+This project was developed as an independant private project. All physical models, algorithm implementations, and validation methods are based on publicly available patents and industry specifications referenced above.
