@@ -4,7 +4,7 @@ This repository contains a comprehensive implementation of a 4-DOF **PRPP** (Pri
 
 ---
 
-## 🤖 System Architecture
+##  System Architecture
 
 The PRPP robot is designed with a unique sliding-base and radial-arm configuration:
 * **Joint 1 (P):** Prismatic slider along the X-axis (Base).
@@ -14,7 +14,7 @@ The PRPP robot is designed with a unique sliding-base and radial-arm configurati
 
 ---
 
-## 📐 Kinematic Specifications
+##  Kinematic Specifications
 
 ### Forward Kinematics (FK)
 The End-Effector position $(X, Y, Z)$ is derived from joint states $(q_1, q_2, q_3, q_4)$ as follows:
