@@ -3,7 +3,7 @@
 > **Cairo University — Faculty of Engineering | CMPS450**
 > Pattern Recognition & Artificial Neural Networks
 
-A full end-to-end pipeline for diagnosing mechanical faults in rotating industrial machinery from raw acoustic signals. The system evaluates two parallel predictive maintenance frameworks — a lightweight **Edge ML** approach and a high-accuracy **Deep Learning** architecture — achieving a final diagnostic accuracy of **99.75%**.
+A full end-to-end pipeline for diagnosing mechanical faults in rotating industrial machinery from raw acoustic signals. The system evaluates two parallel predictive maintenance frameworks a lightweight **Edge ML** approach and a high-accuracy **Deep Learning** architecture achieving a final diagnostic accuracy of **99.75%**.
 
 **Team:** Youssef Salem · Marwan AbdElShafy · Mohamed Ehab · Hamza Mohamed
 
