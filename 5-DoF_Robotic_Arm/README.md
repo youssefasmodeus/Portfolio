@@ -17,69 +17,84 @@ The project follows a distributed control architecture, separating high-level pe
 
 ---
 
-##  Computer Vision & Perception (ROS2)
+##  Computer Vision & Perception
 
 The perception stack transforms 2D camera pixels into 3D robot workspace coordinates using a specialized vision pipeline.
 
-* **ArUco Tracking:** The `ArucoDetectorNode` identifies unique IDs for workspace boundaries (corners) and target payloads.
-* **Perspective Transform:** A $3 \times 3$ transformation matrix corrects for camera tilt and lens distortion, mapping the raw feed to a physical **15cm x 10cm** grid.
-* **Hysteresis & Filtering:** The `ArucoSubscriber` node implements a **0.5cm** movement threshold to filter out camera noise and prevent servo jitter.
-* **Command Cooldown:** A 6-second software lock ensures the robot completes its pick-and-place sequence before accepting a new target.
+- **ArUco Tracking:** The `ArucoDetectorNode` identifies unique IDs for workspace boundaries (corners) and target payloads.
+- **Perspective Transform:** A $3 \times 3$ transformation matrix corrects for camera tilt and lens distortion, mapping the raw feed to a physical **15 cm × 10 cm** grid.
+- **Hysteresis & Filtering:** The `ArucoSubscriber` node implements a **0.5 cm** movement threshold to suppress camera noise and prevent servo jitter.
+- **Command Cooldown:** A 6-second software lock ensures the robot completes its full pick-and-place sequence before accepting a new target.
 
 ---
 
-##  Kinematic Modeling
+##  Kinematic Modelling
 
-The arm utilizes a custom geometric **Inverse Kinematics (IK)** solver to translate Cartesian $(X, Y, Z)$ targets into joint angles.
+The arm uses a custom geometric **Inverse Kinematics (IK)** solver to translate Cartesian $(X, Y, Z)$ targets into joint angles.
 
-### Mathematical Logic
-The base rotation ($q_1$) is derived from:
-$$q_1 = \text{atan2}(Y, X)$$
+### Joint Angle Derivation
 
-The elbow angle ($q_3$) is determined via the Law of Cosines to reach the distance $D$:
-$$\cos(q_3) = \frac{D^2 - L_1^2 - L_{\text{eff}}^2}{2 \cdot L_1 \cdot L_{\text{eff}}}$$
+**Base rotation** $q_1$ is computed directly from the target's horizontal position:
 
-*Note: $L_{\text{eff}}$ combines the forearm, wrist, and gripper lengths ($L_2 + L_3 + L_g$) into a single effective link for simplified planar calculation.*
+$$q_1 = \arctan2(Y,\ X)$$
+
+**Elbow angle** $q_3$ is resolved via the Law of Cosines over the reach distance $D$:
+
+$$\cos(q_3) = \frac{D^2 - L_1^2 - L_\text{eff}^2}{2 \cdot L_1 \cdot L_\text{eff}}$$
+
+> **Link Model:** For planar IK calculation, the forearm, wrist, and gripper are collapsed into a single **effective link** $L_\text{eff} = L_2 + L_3 + L_g$. This simplifies the geometry to a standard 2-link planar problem without loss of accuracy for the target workspace.
 
 ### Safety & Vertical Alignment
-* **Auto-Leveling:** The wrist ($q_5$) automatically adjusts its pitch to keep the gripper perpendicular to the work surface.
-* **Z-Squash Function:** A software safety layer prevents the arm from colliding with the floor, squashing $Z$ inputs below **12cm** into a safe parabolic curve.
-* **Safe Sweeps:** Movements are sequenced (Elbow → Base → Shoulder) to ensure the arm lifts clear of obstacles before rotating.
+
+- **Auto-Leveling:** The wrist joint $q_5$ automatically adjusts its pitch to keep the gripper perpendicular to the work surface at all times.
+- **Z-Squash Function:** A software safety layer prevents floor collisions by remapping any $Z$ input below **12 cm** onto a safe parabolic curve.
+- **Safe Sweep Sequencing:** Motions are executed in a fixed order — **Elbow → Base → Shoulder** — to guarantee the arm lifts clear of obstacles before rotating.
 
 ---
 
 ##  MATLAB Digital Twin
 
-The `5-DOF_RRRRR_Arm.m` script serves as a verification environment. It maps the physical robot using parameters extracted from the `urdfnew.urdf` file.
+The `DoF5_RRRRR_Arm.m` script provides a simulation and verification environment. Robot geometry is sourced directly from `urdfnew.urdf` to keep the model consistent with the physical hardware.
 
-* **Path History:** Visualizes the end-effector trajectory in 3D space to detect potential collisions.
-* **Sinusoidal Easing:** Simulates smooth motion profiling to reduce mechanical stress using:
-    $$\text{easing} = \frac{1 - \cos(\pi \cdot \text{step} / \text{total\_steps})}{2}$$
-* **Accuracy Check:** Calculates the Euclidean distance between the IK solution and the intended target to verify model precision.
+- **Path History:** Renders the full end-effector trajectory in 3D space, making potential collisions or workspace violations immediately visible.
+- **Sinusoidal Easing:** Motion profiles are shaped using a cosine ramp to reduce mechanical stress and replicate smooth servo behaviour:
+
+$$\text{easing}(t) = \frac{1 - \cos\!\left(\pi \cdot \dfrac{t}{T}\right)}{2}$$
+
+- **Accuracy Verification:** After each IK solve, the script computes the Euclidean error between the resolved end-effector pose and the intended target, confirming model precision.
 
 ---
 
 ##  Hardware Specifications
-* **Controller:** ESP32 (WROOM-32) @ 115200 Baud.
-* **Actuation:** PCA9685 16-Channel 12-bit PWM driver.
-* **Servos:** 6 High-torque servos (Base, Shoulder, Elbow, Wrist Roll, Wrist Pitch, Gripper).
-* **Power:** External 5V/10A DC supply.
+
+| Component | Details |
+| :--- | :--- |
+| **Microcontroller** | ESP32 (WROOM-32) @ 115200 baud |
+| **PWM Driver** | PCA9685 — 16-channel, 12-bit |
+| **Actuators** | 6 × high-torque servos (Base, Shoulder, Elbow, Wrist Roll, Wrist Pitch, Gripper) |
+| **Power Supply** | External 5 V / 10 A DC |
 
 ---
 
 ##  Execution Guide
 
 ### 1. Embedded Setup
-Upload the `Main.cpp` firmware to your ESP32. Ensure the `channelMap` array matches your physical PCA9685 wiring (default pins: 0, 3, 4, 7, 8, 15).
+
+Upload `Main.cpp` to your ESP32. Verify that the `channelMap` array matches your physical PCA9685 wiring before flashing.
+
+> Default channel mapping: `0, 3, 4, 7, 8, 15`
 
 ### 2. ROS2 Workspace
-Launch the nodes in separate terminals:
+
+Launch each node in a separate terminal:
+
 ```bash
-# 1. Start Vision Tracking
+# Terminal 1 — Vision tracking
 ros2 run my_arm_pkg aruco_detector
 
-# 2. Start the ESP32 Bridge
+# Terminal 2 — ESP32 serial bridge
 ros2 run my_arm_pkg esp32_bridge --ros-args -p port:=/dev/ttyUSB0
 
-# 3. Start the Coordinator
+# Terminal 3 — Coordinator
 ros2 run my_arm_pkg aruco_subscriber
+```
